@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Score Splitter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Score<span>Splitter</span></h1>
+  <div class="header-steps">
+    <button class="step-btn active" id="btn-step-upload" onclick="App.goStep('upload')">1 · Upload</button>
+    <button class="step-btn" id="btn-step-edit" onclick="App.goStep('edit')" disabled>2 · Cut &amp; Assign</button>
+    <button class="step-btn" id="btn-step-layout" onclick="App.goStep('layout')" disabled>3 · Layout</button>
+    <button class="step-btn" id="btn-step-export" onclick="App.goStep('export')" disabled>4 · Export</button>
+  </div>
+</header>
+
+<div id="app">
+
+  <!-- ── UPLOAD ── -->
+  <div id="upload-screen" style="width:100%">
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12-3-3m0 0-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+      </svg>
+      <p><strong>Click or drag a PDF score here</strong></p>
+      <p style="margin-top:6px">Supports scanned or digital music scores</p>
+    </div>
+    <input type="file" id="file-input" accept=".pdf">
+
+    <div id="recent-sessions" style="width:400px;max-width:90vw"></div>
+  </div>
+
+  <!-- ── EDITOR ── -->
+  <div id="editor-view" style="display:none;width:100%">
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="sidebar-section-title">Pages</div>
+      <div id="page-thumb-list"></div>
+
+      <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border)">
+        <div class="sidebar-section-title">Parts</div>
+        <div class="parts-list" id="parts-list"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:6px;width:100%" onclick="App.addPart()">+ Add part</button>
+      </div>
+    </div>
+
+    <div id="main-area">
+      <div class="editor-toolbar">
+        <!-- Mode -->
+        <button class="btn btn-secondary btn-sm" id="btn-mode-cut" onclick="App.setMode('cut')" title="Click page to add cut line">✂ Cut</button>
+        <button class="btn btn-ghost btn-sm" id="btn-mode-select" onclick="App.setMode('select')" title="Select / drag lines">↖ Select</button>
+        <div class="toolbar-sep"></div>
+
+        <!-- Auto-detect -->
+        <button class="btn btn-ghost btn-sm" onclick="App.autoDetect()" title="Auto-detect staff cuts">⚡ Auto-detect</button>
+        <button class="btn btn-ghost btn-sm" onclick="App.copyToAll()" title="Copy this page's cuts to all pages">⧉ Copy to all</button>
+        <button class="btn btn-danger btn-sm" onclick="App.clearCuts()" title="Delete all cuts on this page">🗑 Clear</button>
+
+        <div class="toolbar-sep"></div>
+
+        <!-- Rotation -->
+        <div class="rotation-control">
+          <span>Rotate</span>
+          <input type="range" id="rot-range" min="-10" max="10" step="0.1" value="0"
+                 oninput="App.onRotationInput(this.value, 'range')">
+          <input type="number" id="rot-num" min="-45" max="45" step="0.1" value="0" style="width:62px"
+                 oninput="App.onRotationInput(this.value, 'num')">
+          <span style="font-size:.75rem">°</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="App.applyRotationToAll()" title="Apply this rotation to all pages">All pages</button>
+      </div>
+
+      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div id="canvas-container">
+            <canvas id="page-canvas"></canvas>
+            <svg id="overlay-svg"></svg>
+          </div>
+          <div style="margin-top:6px;font-size:.75rem;color:var(--text-dim)">
+            <span class="kbd">Click</span> add cut &nbsp;
+            <span class="kbd">Del</span> delete selected &nbsp;
+            <span class="kbd">←/→</span> prev/next page &nbsp;
+            <span class="kbd">A</span> auto-detect
+          </div>
+        </div>
+
+        <div style="min-width:190px">
+          <div class="sidebar-section-title" style="margin-bottom:8px">Strips on this page</div>
+          <div id="strip-assignment-panel" class="part-assignment-panel"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LAYOUT ── -->
+  <div id="layout-view" style="display:none;width:100%">
+    <div id="sidebar">
+      <div class="sidebar-section-title">Parts</div>
+      <div id="layout-parts-nav"></div>
+      <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border)">
+        <button class="btn btn-primary btn-sm" style="width:100%" onclick="App.goStep('export')">Continue to Export →</button>
+      </div>
+    </div>
+    <div id="main-area">
+      <div class="layout-toolbar">
+        <span style="font-size:.85rem;color:var(--text-dim)">Drag strips to reorder within each part.</span>
+        <button class="btn btn-ghost btn-sm" onclick="App.renderLayoutView()">↺ Refresh</button>
+      </div>
+      <div class="parts-columns" id="layout-columns"></div>
+    </div>
+  </div>
+
+  <!-- ── EXPORT ── -->
+  <div id="export-view" style="display:none;width:100%">
+    <div id="sidebar">
+      <div class="sidebar-section-title">Info</div>
+      <div style="font-size:.8rem;color:var(--text-dim);line-height:1.5">
+        Export each voice part as a separate PDF, or download all as a ZIP.
+      </div>
+    </div>
+    <div id="main-area">
+      <h2 style="margin-bottom:4px;font-size:1rem">Export Parts</h2>
+      <p style="font-size:.82rem;color:var(--text-dim);margin-bottom:12px">PDFs are generated at 200 DPI preserving original quality.</p>
+      <button class="btn btn-primary" onclick="App.exportAll()">⬇ Download all as ZIP</button>
+      <div class="export-grid" id="export-grid"></div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<div id="toast-container"></div>
+<script src="app.js"></script>
+</body>
+</html>
